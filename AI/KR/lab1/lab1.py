@@ -29,6 +29,7 @@ class Node(ABC):
             res.append(curr)
         return res
     
+    
     def pathToString(self):
         r_path = self.rootPath()
         res = "("

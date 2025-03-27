@@ -5,6 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from lab1.lab1 import Node, Graph, printNeighbourList
 from typing import List, Dict, Tuple, cast
 from queue import PriorityQueue
+from copy import deepcopy
 
 class AStarNode(Node):
     def __init__(self, data, parent = None, children : List = None, g : int = 0, h : int = 0):
@@ -85,6 +86,72 @@ def a_star(graph: AStarGraph) -> List[AStarNode]:
         
         closed.add(curr)
     return result
+
+
+def ida_TSP(graph: AStarGraph):
+    clone_graph = deepcopy(graph)
+
+    while len(clone_graph.node_list):
+        curr_node = clone_graph.start_node
+        dists = []
+
+        # Get distances to all nodes
+        for node in clone_graph.node_list:
+            clone_graph.dest_nodes = [node]
+            dists.append((node, ida_star(clone_graph)))
+        
+        # Choose closest node
+        chosen_node = max(dists)[0]
+        
+        # Remove it from the list
+        clone_graph.node_list.remove(curr_node)
+
+        curr_node = chosen_node
+
+
+# Returns the distance to the first destination node found
+def ida_star(graph: AStarGraph) -> List[AStarGraph]:
+    bound = int('inf')
+
+    while True:
+        start = deepcopy(graph.start_node)
+        res = ida_search(start, 0, bound)
+
+        if res == "found":
+            return bound
+        if res == int('inf'):
+            return "not found"
+        
+        bound = res        
+
+def ida_search(graph: AStarGraph, curr_node: AStarNode, bound: int):
+    curr_f = curr_node.f()
+    # Update bound
+    if curr_f > bound:
+        return curr_f
+    
+    # Found node
+    if graph.isDestination(curr_node):
+        return "found"
+    
+    v_min = int('inf')
+    # DFS
+    for succ, e_weight in graph.neighbour_list[curr_node]:
+        succ = cast(AStarNode, succ)
+        succ.g = curr_node.g + e_weight
+
+        curr_node.addChild(succ)
+
+        res = ida_search(graph, succ, bound)
+        if res == 'found':
+            return 'found'
+        v_min = min(res, v_min)
+
+        curr_node.removeChild(succ)
+
+    return v_min
+        
+    
 
 # Assuming the edges are directed and weighted
 # The value of the node is also index into the node_list
