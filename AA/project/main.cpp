@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <cassert>
 
-// TODO: ADD CHECK FOR crossover in verify
 // TODO: Make a vector printing function
 // TODO: Encapsulate in a class
 
@@ -29,6 +28,9 @@ uint64_t fromBits(const std::vector<bool>& bits);
 
 void crossover(Chromosome& c1, Chromosome& c2, size_t cut_point, const Function& func);
 
+
+std::string bitsToString(const std::vector<bool>& bits);
+std::vector<bool> stringToBits(const std::string& bits_s);
 
 // Asserting that the output from the homework example is the same as
 // The output of the following functions
@@ -83,7 +85,7 @@ public:
     void resetValue(const Function& func);
 
     const std::vector<bool>& getBits() const{return bits;}
-    std::string getBitsString() const;
+    std::string getBitsString() const {return bitsToString(bits);}
     
     void mutation();
     
@@ -156,13 +158,6 @@ int main(){
 
     // std::cout << test_algo.func.fitness(-0.914592) << '\n';
 
-}
-
-std::string Chromosome::getBitsString() const{
-    std::string res = "";
-    for (auto v : bits)
-        res += std::to_string(v);
-    return res;
 }
 
 GeneticAlgo::GeneticAlgo(const std::string& in_file_name, const std::string& out_file_name)
@@ -264,7 +259,7 @@ void crossover(Chromosome& c1, Chromosome& c2, size_t cut_point, const Function&
     assert(c1.bits.size() == c2.bits.size());
 
     // Swaps bits starting at cut point
-    for (int i = cut_point; i < c1.bits.size(); ++i){
+    for (int i = 0; i < cut_point; ++i){
         bool temp = c1.bits[i];
         c1.bits[i] = c2.bits[i];
         c2.bits[i] = temp;
@@ -458,6 +453,20 @@ std::vector<bool> toBits(uint64_t n, int nr_bits){
     return result;
 }
 
+std::string bitsToString(const std::vector<bool>& bits){
+    std::string res(bits.size(), '0');
+    for (int i = 0; i < bits.size(); ++i)
+        res[i] = (char)(bits[i] + 48);
+    return res;
+}
+
+std::vector<bool> stringToBits(const std::string& bits_s){
+    std::vector<bool> res(bits_s.size());
+    for (int i = 0; i < bits_s.size(); ++i)
+        res[i] = (bits_s[i] == '1');
+    return res;
+}
+
 // Taking test input and output from homework and checking if it matches
 // The output of the following functions
 // fromBits, fitness, getRelativeProb, getCumulativeIntervals, intervalBinSearch
@@ -511,7 +520,6 @@ void verify(){
 
     // Assert chromosome creation and fitness calculation
     const std::vector<Chromosome>& test_algo_chromos = test_algo.getChromosomes(); 
-    const std::vector<double> test_algo_fitnesses = test_algo.getChromosomesFitness();
 
     // Assert fromBits function
     for (int i = 0; i < chromos.size(); ++i){
@@ -521,9 +529,14 @@ void verify(){
     }
 
     // Assert toBits function
-    for (int i = 0; i < chromos.size(); ++i)
-        if (test_func.toBits(chromos[i].getValue(), test_algo.getNrBits()) != chromos[i].getBits())
-            std::cerr << "[ASSERT FAILED]: To bits failed for chromosome " << i << '\n';
+    for (int i = 0; i < chromos.size(); ++i){
+        std::string chromo_bits = chromos[i].getBitsString();
+        std::string test_chromo_bits = bitsToString(test_func.toBits(chromos[i].getValue(), chromo_bits.size()));
+
+        if (test_chromo_bits != chromo_bits)
+            std::cerr << "[ASSERT FAILED]: To bits failed for chromosome " << i << "\n"
+                      << test_chromo_bits << "!=" << chromo_bits;
+    }
     
     // Assert interval index calculation
     for (int i = 0; i < test_algo_chromos.size(); ++i){
@@ -541,6 +554,7 @@ void verify(){
                       << "!=" << chromos[i].getValue()<< '\n' << test_algo_chromos[i].getBitsString() << "!=" << chromos[i].getBitsString() << '\n';
     }
 
+    const std::vector<double> test_algo_fitnesses = test_algo.getChromosomesFitness();
     // Assert fitness calculation
     for (int i = 0; i < test_algo_fitnesses.size(); ++i)
         if (abs(test_algo_fitnesses[i] - f_values[i]) > 1e-6)
@@ -557,7 +571,7 @@ void verify(){
         0.03848343777592496, 0.06080225640240799
     };
 
-    std::vector<double> test_probs = getRelativeProb(test_algo.getChromosomesFitness());
+    std::vector<double> test_probs = getRelativeProb(test_algo_fitnesses);
     // Assert chromosome selection probability
     for (int i = 0; i < test_probs.size(); ++i)
         if (abs(test_probs[i] - chromo_probabilities[i]) > 1e-6)
@@ -599,6 +613,81 @@ void verify(){
         int index = intervalBinSearch(p.first, test_partial_sums) + 1;
         if (index != p.second)
             std::cerr << "[ASSERT FAILED]: IntervalBinSearch: " << index << "!=" << p.second << '\n';
+    }
+
+    // Chromosomes that participate in crossover
+    std::vector<std::vector<bool>> cross_chromos_bits{
+        stringToBits("1001110010011100111001"),
+        stringToBits("0101110111101010011111"),
+        stringToBits("0100000001010010110111"),
+        stringToBits("1100000001110111000101"),
+        stringToBits("1100110111010010011111"),
+        stringToBits("1101101110100010011111")
+    };
+
+    std::vector<std::tuple<Chromosome, Chromosome, size_t>> cross_chromos{
+        {
+            Chromosome(test_func.fromBits(cross_chromos_bits[0]), cross_chromos_bits[0]),
+            Chromosome(test_func.fromBits(cross_chromos_bits[1]), cross_chromos_bits[1]),
+            0
+        },
+        
+        {
+            Chromosome(test_func.fromBits(cross_chromos_bits[2]), cross_chromos_bits[2]),
+            Chromosome(test_func.fromBits(cross_chromos_bits[3]), cross_chromos_bits[3]),
+            17
+        },
+
+        {
+            Chromosome(test_func.fromBits(cross_chromos_bits[4]), cross_chromos_bits[4]),
+            Chromosome(test_func.fromBits(cross_chromos_bits[5]), cross_chromos_bits[5]),
+            0
+        },
+    };
+
+    // Chromosomes after crossover
+    std::vector<std::vector<bool>> result_bits{
+        stringToBits("1001110010011100111001"),
+        stringToBits("0101110111101010011111"),
+        stringToBits("1100000001110111010111"),
+        stringToBits("0100000001010010100101"),
+        stringToBits("1100110111010010011111"),
+        stringToBits("1101101110100010011111")
+    };
+
+    std::vector<std::pair<Chromosome, Chromosome>> cross_chromos_res{
+        {
+            Chromosome(test_func.fromBits(result_bits[0]), result_bits[0]),
+            Chromosome(test_func.fromBits(result_bits[1]), result_bits[1])
+        },
+        
+        {
+            Chromosome(test_func.fromBits(result_bits[2]), result_bits[2]),
+            Chromosome(test_func.fromBits(result_bits[3]), result_bits[3])
+        },
+
+        {
+            Chromosome(test_func.fromBits(result_bits[4]), result_bits[4]),
+            Chromosome(test_func.fromBits(result_bits[5]), result_bits[5])
+        },
+    };
+
+    // Checking if crossover changes correctly the chromosomes
+    for (int i = 0; i < cross_chromos.size(); ++i){
+        auto& chromo_t = cross_chromos[i];
+        auto& chromo_res = cross_chromos_res[i];
+
+        crossover(std::get<0>(chromo_t), std::get<1>(chromo_t), std::get<2>(chromo_t), test_func);
+
+        // First chromo
+        if (std::get<0>(chromo_t) != chromo_res.first)
+            std::cerr << "[ASSERT FAILED] crossover failed for pair " << i << " first chromo is different:\n"
+                      << std::get<0>(chromo_t).getBitsString() << "!=" << chromo_res.first.getBitsString() << "\n\n";
+        
+        // Second chromo
+        if (std::get<1>(chromo_t) != chromo_res.second)
+            std::cerr << "[ASSERT FAILED] crossover failed for pair " << i << " second chromo is different:\n"
+                      << std::get<1>(chromo_t).getBitsString() << "!=" << chromo_res.second.getBitsString() << "\n\n";
     }
 }
 
